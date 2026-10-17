@@ -1,29 +1,40 @@
-name: Docs CI
+name: Docs CI & Auto-fix
 on:
-  push:
-    branches: [ main ]
   pull_request:
     branches: [ main ]
+    paths:
+      - '**/*.md'
+
+permissions:
+  contents: write
 
 jobs:
-  # Check Grammar
-  lint:
+  docs-check-and-fix:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code
+      - name: Checkout PR Branch
         uses: actions/checkout@v4
-      - name: Lint Markdown
-        uses: davidanson/markdownlint-cli2-action@v16
         with:
-          globs: '**/*.md'
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.head_ref }}
 
-  # Check avaliable links
-  link-check:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+      # Check Dead Links
       - name: Check Broken Links
         uses: lycheeverse/lychee-action@v2
         with:
           args: --verbose --no-progress './**/*.md'
+
+      # Auto-fix
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+      - name: Auto-fix Markdown Formatting
+        run: npx prettier --write "**/*.md"
+
+      # Commit back to PR
+      - name: Commit and Push Changes
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "style: auto-fix markdown formatting [skip ci]"
+          branch: ${{ github.head_ref }}
